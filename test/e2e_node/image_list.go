@@ -237,6 +237,8 @@ func getGPUDevicePluginImage() (string, error) {
 }
 
 // getSRIOVDevicePluginImage returns the image of SRIOV device plugin.
+// Shared code across linux and cgo build tags within e2e. Requires lint ignores.
+// nolint:deadcode
 func getSRIOVDevicePluginImage() (string, error) {
 	data, err := e2etestfiles.Read(SRIOVDevicePluginDSYAML)
 	if err != nil {
