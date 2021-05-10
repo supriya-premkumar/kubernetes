@@ -20,6 +20,7 @@ package local
 
 import (
 	"fmt"
+	"k8s.io/kubernetes/pkg/volume"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -28,7 +29,6 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kubernetes/pkg/volume"
 )
 
 func TestFSGroupMount(t *testing.T) {
@@ -76,13 +76,13 @@ func testFSGroupMount(plug volume.VolumePlugin, pod *v1.Pod, tmpDir string, fsGr
 		return err
 	}
 	if mounter == nil {
-		return fmt.Errorf("Got a nil Mounter")
+		return fmt.Errorf("got a nil Mounter")
 	}
 
 	volPath := filepath.Join(tmpDir, testMountPath)
 	path := mounter.GetPath()
 	if path != volPath {
-		return fmt.Errorf("Got unexpected path: %s", path)
+		return fmt.Errorf("got unexpected path: %s", path)
 	}
 
 	var mounterArgs volume.MounterArgs

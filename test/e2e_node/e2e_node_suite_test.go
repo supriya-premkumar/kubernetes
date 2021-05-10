@@ -43,6 +43,7 @@ import (
 	commontest "k8s.io/kubernetes/test/e2e/common"
 	"k8s.io/kubernetes/test/e2e/framework"
 	e2econfig "k8s.io/kubernetes/test/e2e/framework/config"
+	e2egpu "k8s.io/kubernetes/test/e2e/framework/gpu"
 	e2emanifest "k8s.io/kubernetes/test/e2e/framework/manifest"
 	e2etestfiles "k8s.io/kubernetes/test/e2e/framework/testfiles"
 	"k8s.io/kubernetes/test/e2e/generated"
@@ -70,6 +71,21 @@ var (
 	stopServices  = flag.Bool("stop-services", true, "If true, stop local node services after running tests")
 )
 
+// getGPUDevicePluginImage returns the image of GPU device plugin.
+func getGPUDevicePluginImage() (string, error) {
+	ds, err := e2emanifest.DaemonSetFromURL(e2egpu.GPUDevicePluginDSYAML)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse the device plugin image: %w", err)
+	}
+	if ds == nil {
+		return "", fmt.Errorf("failed to parse the device plugin image: the extracted DaemonSet is nil")
+	}
+	if len(ds.Spec.Template.Spec.Containers) < 1 {
+		return "", fmt.Errorf("failed to parse the device plugin image: cannot extract the container from YAML")
+	}
+	return ds.Spec.Template.Spec.Containers[0].Image, nil
+}
+
 // updateImageAllowList updates the framework.ImagePrePullList with
 // 1. the hard coded lists
 // 2. the ones passed in from framework.TestContext.ExtraEnvs
@@ -79,30 +95,35 @@ func updateImageAllowList() {
 	framework.ImagePrePullList = NodePrePullImageList.Union(commontest.PrePulledImages)
 	// Images from extra envs
 	framework.ImagePrePullList.Insert(getNodeProblemDetectorImage())
-	framework.ImagePrePullList.Insert(getSRIOVDevicePluginImage())
+	if sriovDevicePluginImage, err := getSRIOVDevicePluginImage(); err != nil {
+		klog.Errorln(err)
+	} else {
+		framework.ImagePrePullList.Insert(sriovDevicePluginImage)
+	}
+	if gpuDevicePluginImage, err := getGPUDevicePluginImage(); err != nil {
+		klog.Errorln(err)
+	} else {
+		framework.ImagePrePullList.Insert(gpuDevicePluginImage)
+	}
 }
 
 // getSRIOVDevicePluginImage returns the image of SRIOV device plugin.
-func getSRIOVDevicePluginImage() string {
+func getSRIOVDevicePluginImage() (string, error) {
 	data, err := e2etestfiles.Read(SRIOVDevicePluginDSYAML)
 	if err != nil {
-		klog.Errorf("Failed to read the device plugin manifest: %v", err)
-		return ""
+		return "", fmt.Errorf("failed to read the device plugin manifest: %w", err)
 	}
 	ds, err := e2emanifest.DaemonSetFromData(data)
 	if err != nil {
-		klog.Errorf("Failed to parse the device plugin image: %v", err)
-		return ""
+		return "", fmt.Errorf("failed to parse the device plugin image: %w", err)
 	}
 	if ds == nil {
-		klog.Errorf("Failed to parse the device plugin image: the extracted DaemonSet is nil")
-		return ""
+		return "", fmt.Errorf("failed to parse the device plugin image: the extracted DaemonSet is nil")
 	}
 	if len(ds.Spec.Template.Spec.Containers) < 1 {
-		klog.Errorf("Failed to parse the device plugin image: cannot extract the container from YAML")
-		return ""
+		return "", fmt.Errorf("failed to parse the device plugin image: cannot extract the container from YAML")
 	}
-	return ds.Spec.Template.Spec.Containers[0].Image
+	return ds.Spec.Template.Spec.Containers[0].Image, nil
 }
 
 // registerNodeFlags registers flags specific to the node e2e test suite.
